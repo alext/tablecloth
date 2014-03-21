@@ -20,6 +20,7 @@ type Manager interface {
 
 type manager struct {
 	listeners       map[string]*graceful_listener.Listener
+	listenersLock   sync.Mutex
 	activeListeners sync.WaitGroup
 	inParent        bool
 }
@@ -46,7 +47,9 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 		return err
 	}
 
+	m.listenersLock.Lock()
 	m.listeners[ident] = l
+	m.listenersLock.Unlock()
 
 	err = http.Serve(l, handler)
 	if l.Stopping() {
@@ -81,6 +84,9 @@ func (m *manager) handleSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP)
 	_ = <-c
+
+	m.listenersLock.Lock()
+	defer m.listenersLock.Unlock()
 
 	if m.inParent {
 		m.upgradeServer()
