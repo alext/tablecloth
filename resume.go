@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/alext/graceful_listener"
 )
@@ -95,7 +96,8 @@ func (m *manager) upgradeServer() {
 		panic(err)
 	}
 
-	// TODO: Wait for child to start serving
+	// TODO: Better means of waiting for child to start serving
+	time.Sleep(5 * time.Second)
 
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
@@ -160,7 +162,8 @@ func (m *manager) hupTemporaryChild() {
 		return
 	}
 
-	// TODO: wait for parent to start
+	// TODO: Better meand of waiting for parent to start
+	time.Sleep(5 * time.Second)
 
 	proc, err := os.FindProcess(childPid)
 	if err != nil {
