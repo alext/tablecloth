@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	//"sync"
+	"sync"
 	"syscall"
 
 	"github.com/alext/graceful_listener"
@@ -18,8 +18,9 @@ type Manager interface {
 }
 
 type manager struct {
-	listeners map[string]*graceful_listener.Listener
-	inParent  bool
+	listeners       map[string]*graceful_listener.Listener
+	activeListeners sync.WaitGroup
+	inParent        bool
 }
 
 func NewManager() (m *manager) {
@@ -36,6 +37,9 @@ func NewManager() (m *manager) {
 }
 
 func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error {
+	m.activeListeners.Add(1)
+	defer m.activeListeners.Done()
+
 	l, err := graceful_listener.ResumeOrStart(listenFdFromEnv(ident), addr)
 	if err != nil {
 		return err
@@ -49,7 +53,15 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 		if err != nil {
 			return err
 		}
-		// TODO: signal re-Exec (maybe use WaitGroup)
+		if m.inParent {
+			// TODO: something better here
+
+			// This function will now never return, so the defer won't happen.
+			m.activeListeners.Done()
+			// prevent main goroutine returning before it's re-exec'd
+			c := make(chan bool)
+			<-c
+		}
 	} else if err != nil {
 		return err
 	}
@@ -105,7 +117,8 @@ func (m *manager) closeListeners() {
 }
 
 func (m *manager) reExecSelf(fds map[string]int, childPid int) {
-	// TODO: block until ready
+	// wait until there are no active listeners
+	m.activeListeners.Wait()
 
 	em := newEnvMap(os.Environ())
 	for ident, fd := range fds {
