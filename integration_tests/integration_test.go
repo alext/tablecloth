@@ -21,7 +21,7 @@ func TestUpgradeableHTTP(t *testing.T) {
 
 	err := buildTestServers()
 	if err != nil {
-		t.Errorf("Failed to build test servers: %v", err)
+		t.Fatalf("Failed to build test servers: %v", err)
 	}
 	RunSpecs(t, "Upgradeable HTTP")
 }
