@@ -39,12 +39,10 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 	Context("Listening on a single port", func() {
 		var (
-			client	  *http.Client
 			serverCmd *exec.Cmd
 		)
 
 		BeforeEach(func() {
-			client = httpClient()
 			var err error
 			serverCmd, err = startServer("single_listen", 8081)
 			Expect(err).To(BeNil())
@@ -55,14 +53,14 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should listen on the given address", func() {
-			resp, err := client.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://127.0.0.1:8081/")
 			Expect(err).To(BeNil())
 
 			Expect(resp.StatusCode).To(Equal(200))
 		})
 
 		It("Should restart when given a HUP signal", func() {
-			resp, err := client.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://127.0.0.1:8081/")
 			Expect(err).To(BeNil())
 			firstBody, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -71,13 +69,14 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 			reloadServer(serverCmd)
 
-			resp, err = client.Get("http://127.0.0.1:8081/")
+			resp, err = http.Get("http://127.0.0.1:8081/")
 			Expect(err).To(BeNil())
 			newBody, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 
 			Expect(resp.StatusCode).To(Equal(200))
 
+			// The response body includes the start time of the server
 			Expect(string(newBody)).NotTo(Equal(string(firstBody)))
 		})
 
@@ -93,14 +92,10 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 	})
 })
 
-func httpClient() *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{DisableKeepAlives: true},
-	}
-}
-
 func startServer(server string, port int) (cmd *exec.Cmd, err error) {
 	cmd = exec.Command(fmt.Sprintf("./test_servers/%s", server), fmt.Sprintf("-listenAddr=127.0.0.1:%d", port))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	time.Sleep(1 * time.Second)
 

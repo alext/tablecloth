@@ -28,5 +28,9 @@ func main() {
 }
 
 func serverResponse(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(250 * time.Millisecond)
+
+	// Force closing of the connection to prevent keepalive
+	w.Header().Set("Connection", "close")
 	fmt.Fprintf(w, "Hello from %d\nStarted at %v\n", syscall.Getpid(), startTime)
 }
