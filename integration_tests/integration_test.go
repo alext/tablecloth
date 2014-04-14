@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"syscall"
 	"testing"
@@ -17,7 +18,21 @@ import (
 
 func TestUpgradeableHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
+
+	err := buildTestServers()
+	if err != nil {
+		t.Errorf("Failed to build test servers: %v", err)
+	}
 	RunSpecs(t, "Upgradeable HTTP")
+}
+
+func buildTestServers() (err error) {
+	cmd := exec.Command("make")
+	cwd, _ := os.Getwd()
+	cmd.Dir = cwd + "/test_servers"
+	cmd.Dir = "./test_servers"
+	err = cmd.Run()
+	return
 }
 
 var _ = Describe("Upgradeable HTTP listener", func() {
