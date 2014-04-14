@@ -14,6 +14,10 @@ import (
 	"github.com/alext/graceful_listener"
 )
 
+var (
+	StartupDelay = 5 * time.Second
+)
+
 type Manager interface {
 	ListenAndServe(ident, addr string, handler http.Handler) error
 }
@@ -103,7 +107,7 @@ func (m *manager) upgradeServer() {
 	}
 
 	// TODO: Better means of waiting for child to start serving
-	time.Sleep(5 * time.Second)
+	time.Sleep(StartupDelay)
 
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
@@ -169,7 +173,7 @@ func (m *manager) stopTemporaryChild() {
 	}
 
 	// TODO: Better meand of waiting for parent to start
-	time.Sleep(5 * time.Second)
+	time.Sleep(StartupDelay)
 
 	proc, err := os.FindProcess(childPid)
 	if err != nil {
