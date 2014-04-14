@@ -33,7 +33,7 @@ func NewManager() (m *manager) {
 	go m.handleSignals()
 
 	if m.inParent {
-		go m.hupTemporaryChild()
+		go m.stopTemporaryChild()
 	}
 	return
 }
@@ -161,7 +161,7 @@ func (m *manager) startTemporaryChild() (proc *os.Process, err error) {
 	return cmd.Process, nil
 }
 
-func (m *manager) hupTemporaryChild() {
+func (m *manager) stopTemporaryChild() {
 	childPid, err := strconv.Atoi(os.Getenv("TEMPORARY_CHILD_PID"))
 	if err != nil {
 		// non-integer/blank TEMPORARY_CHILD_PID so ignore
