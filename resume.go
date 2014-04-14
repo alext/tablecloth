@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	StartupDelay = 5 * time.Second
+	StartupDelay = 1 * time.Second
 )
 
 type Manager interface {
