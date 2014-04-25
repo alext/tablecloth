@@ -19,6 +19,8 @@ var (
 func main() {
 	startTime = time.Now()
 	flag.Parse()
+
+	upgradeable_http.StartupDelay = 100 * time.Millisecond
 	m := upgradeable_http.NewManager()
 
 	err := m.ListenAndServe("default", *listenAddr, http.HandlerFunc(serverResponse))

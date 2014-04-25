@@ -21,8 +21,9 @@ var (
 func main() {
 	startTime = time.Now()
 	flag.Parse()
-	m := upgradeable_http.NewManager()
 
+	upgradeable_http.StartupDelay = 100 * time.Millisecond
+	m := upgradeable_http.NewManager()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
