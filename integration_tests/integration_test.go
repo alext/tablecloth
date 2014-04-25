@@ -26,13 +26,16 @@ func TestUpgradeableHTTP(t *testing.T) {
 	RunSpecs(t, "Upgradeable HTTP")
 }
 
-func buildTestServers() (err error) {
+func buildTestServers() error {
 	cmd := exec.Command("make")
 	cwd, _ := os.Getwd()
 	cmd.Dir = cwd + "/test_servers"
 	cmd.Dir = "./test_servers"
-	err = cmd.Run()
-	return
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v\n%s", err, output)
+	}
+	return nil
 }
 
 var _ = Describe("Upgradeable HTTP listener", func() {
