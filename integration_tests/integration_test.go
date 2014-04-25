@@ -26,7 +26,7 @@ func TestUpgradeableHTTP(t *testing.T) {
 }
 
 func buildTestServers() error {
-	cmd := exec.Command("make")
+	cmd := exec.Command("make", "-B")
 	cwd, _ := os.Getwd()
 	cmd.Dir = cwd + "/test_servers"
 	cmd.Dir = "./test_servers"
@@ -81,7 +81,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 4 * time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 3 * time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
@@ -148,7 +148,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 4 * time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 3 * time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
@@ -176,7 +176,7 @@ func reloadServer(cmd *exec.Cmd) {
 	// Wait until the reload has completed
 	// 2 * StartupDelay(1s) - once in temp child, once in new parent
 	// plus a little bit to allow for other delays (eg waiting for connection close)
-	time.Sleep(2500 * time.Millisecond)
+	time.Sleep(1500 * time.Millisecond)
 }
 
 func stopServer(cmd *exec.Cmd) {

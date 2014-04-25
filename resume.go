@@ -14,6 +14,7 @@ import (
 
 var (
 	StartupDelay = 1 * time.Second
+	CloseWaitTimeout = 30 * time.Second
 )
 
 type Manager interface {
@@ -55,7 +56,7 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 
 	err = http.Serve(l, handler)
 	if l.Stopping() {
-		err = l.WaitForClients(10)
+		err = l.WaitForClients(CloseWaitTimeout)
 		if err != nil {
 			return err
 		}
