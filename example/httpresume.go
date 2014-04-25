@@ -32,11 +32,10 @@ func getenvDefault(key string, defaultVal string) string {
 func main() {
 	log.Println("main started with args:", os.Args)
 
-	m := upgradeable_http.NewManager()
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go serve(m, "one", ":8080", &wg)
-	go serve(m, "two", ":8081", &wg)
+	go serve(":8080", "one", &wg)
+	go serve(":8081", "two", &wg)
 
 	wg.Wait()
 
@@ -44,8 +43,8 @@ func main() {
 	os.Exit(0)
 }
 
-func serve(m upgradeable_http.Manager, ident, addr string, wg *sync.WaitGroup) {
-	err := m.ListenAndServe(ident, addr, http.HandlerFunc(serverResponse))
+func serve(addr, ident string, wg *sync.WaitGroup) {
+	err := upgradeable_http.ListenAndServe(addr, http.HandlerFunc(serverResponse), ident)
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}
