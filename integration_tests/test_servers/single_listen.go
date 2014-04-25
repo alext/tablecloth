@@ -14,6 +14,7 @@ import (
 var (
 	startTime time.Time
 	listenAddr *string = flag.String("listenAddr", ":8081", "The address to listen on")
+	closeTimeoutStr *string = flag.String("closeTimeout", "500ms", "How long to wait for connections to gracefully close")
 )
 
 func main() {
@@ -21,10 +22,16 @@ func main() {
 	flag.Parse()
 
 	upgradeable_http.StartupDelay = 100 * time.Millisecond
-	upgradeable_http.CloseWaitTimeout = 500 * time.Millisecond
+
+	closeTimeout, err := time.ParseDuration(*closeTimeoutStr)
+	if err != nil {
+		log.Fatal("Invalid closeTimeout: ", err)
+	}
+	upgradeable_http.CloseWaitTimeout = closeTimeout
+
 	m := upgradeable_http.NewManager()
 
-	err := m.ListenAndServe("default", *listenAddr, http.HandlerFunc(serverResponse))
+	err = m.ListenAndServe("default", *listenAddr, http.HandlerFunc(serverResponse))
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}

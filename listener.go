@@ -88,7 +88,7 @@ func (l *GracefulListener) WaitForClients(timeout time.Duration) error {
 		return nil
 	}
 	timeoutCh := time.After(timeout)
-	ticker := time.NewTicker(250 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {

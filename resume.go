@@ -57,17 +57,19 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 	err = http.Serve(l, handler)
 	if l.Stopping() {
 		err = l.WaitForClients(CloseWaitTimeout)
-		if err != nil {
-			return err
-		}
 		if m.inParent {
-			// TODO: something better here
+			// TODO: notify/log WaitForClients errors somehow.
 
-			// This function will now never return, so the defer won't happen.
+			// This function will now never return, so the above defer won't happen.
 			m.activeListeners.Done()
-			// prevent main goroutine returning before it's re-exec'd
+
+			// prevent this goroutine returning before the server has re-exec'd
+			// This is to cover the case where this is the main goroutine, and exiting
+			// would therefore prevent the re-exec happening
 			c := make(chan bool)
 			<-c
+		} else if err != nil {
+			return err
 		}
 	} else if err != nil {
 		return err
