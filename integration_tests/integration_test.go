@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vegeta "github.com/tsenart/vegeta/lib"
-
 )
 
 func TestUpgradeableHTTP(t *testing.T) {
@@ -39,20 +38,18 @@ func buildTestServers() error {
 }
 
 var _ = Describe("Upgradeable HTTP listener", func() {
+	var (
+		serverCmd *exec.Cmd
+	)
+
+	AfterEach(func() {
+		stopServer(serverCmd)
+	})
 
 	Context("Listening on a single port", func() {
-		var (
-			serverCmd *exec.Cmd
-		)
 
 		BeforeEach(func() {
-			var err error
-			serverCmd, err = startServer("single_listen", 8081)
-			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			stopServer(serverCmd)
+			serverCmd = startServer("single_listen", "-listenAddr=127.0.0.1:8081")
 		})
 
 		It("Should listen on the given address", func() {
@@ -93,13 +90,82 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			Expect(metrics.StatusCodes["200"]).To(Equal(int(metrics.Requests)))
 		})
 	})
+
+	Context("Listening on multiple ports", func() {
+
+		BeforeEach(func() {
+			serverCmd = startServer("double_listen", "-listenAddr1=127.0.0.1:8081", "-listenAddr2=127.0.0.1:8082")
+		})
+
+		It("Should listen on the given addresses", func() {
+			resp, err := http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+
+			Expect(resp.StatusCode).To(Equal(200))
+
+			resp, err = http.Get("http://127.0.0.1:8082/")
+			Expect(err).To(BeNil())
+
+			Expect(resp.StatusCode).To(Equal(200))
+		})
+
+		It("Should restart when given a HUP signal", func() {
+			resp, err := http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			firstBody1, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(200))
+
+			resp, err = http.Get("http://127.0.0.1:8082/")
+			Expect(err).To(BeNil())
+			firstBody2, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(200))
+
+			reloadServer(serverCmd)
+
+			resp, err = http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			newBody, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(200))
+
+			// The response body includes the start time of the server
+			Expect(string(newBody)).NotTo(Equal(string(firstBody1)))
+
+			resp, err = http.Get("http://127.0.0.1:8082/")
+			Expect(err).To(BeNil())
+			newBody, _ = ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(200))
+
+			// The response body includes the start time of the server
+			Expect(string(newBody)).NotTo(Equal(string(firstBody2)))
+		})
+
+		It("Should not drop any requests while reloading", func() {
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 4 * time.Second)
+
+			time.Sleep(100 * time.Millisecond)
+			reloadServer(serverCmd)
+
+			metrics := <- resultCh
+			Expect(metrics.StatusCodes["200"]).To(Equal(int(metrics.Requests)))
+		})
+
+	})
 })
 
-func startServer(server string, port int) (cmd *exec.Cmd, err error) {
-	cmd = exec.Command(fmt.Sprintf("./test_servers/%s", server), fmt.Sprintf("-listenAddr=127.0.0.1:%d", port))
+func startServer(server string, args ...string) (cmd *exec.Cmd) {
+	cmd = exec.Command(fmt.Sprintf("./test_servers/%s", server), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Start()
+	err := cmd.Start()
+	Expect(err).To(BeNil())
 	time.Sleep(50 * time.Millisecond)
 
 	return

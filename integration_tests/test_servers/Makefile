@@ -1,5 +1,5 @@
 
-SERVERS = single_listen
+SERVERS = single_listen double_listen
 
 all: $(SERVERS)
 
