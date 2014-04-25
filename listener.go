@@ -83,17 +83,24 @@ func (l *GracefulListener) decCount() {
 	atomic.AddInt64(&l.connCount, -1)
 }
 
-func (l *GracefulListener) WaitForClients(timeout int) error {
-	for i := 0; i < timeout; i++ {
-		if l.getCount() == 0 {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
+func (l *GracefulListener) WaitForClients(timeout time.Duration) error {
 	if l.getCount() == 0 {
 		return nil
 	}
-	return fmt.Errorf("Still %d active clients after %d seconds", l.getCount(), timeout)
+	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <- ticker.C:
+			if l.getCount() == 0 {
+				return nil
+			}
+		case <- timeoutCh:
+			return fmt.Errorf("Still %d active clients after %s", l.getCount(), timeout)
+		}
+	}
 }
 
 func (l *GracefulListener) PrepareFd() (fd int, err error) {

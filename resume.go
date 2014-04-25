@@ -55,7 +55,7 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 
 	err = http.Serve(l, handler)
 	if l.Stopping() {
-		err = l.WaitForClients(10)
+		err = l.WaitForClients(10 * time.Second)
 		if err != nil {
 			return err
 		}
