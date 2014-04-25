@@ -29,9 +29,7 @@ func main() {
 	}
 	upgradeable_http.CloseWaitTimeout = closeTimeout
 
-	m := upgradeable_http.NewManager()
-
-	err = m.ListenAndServe("default", *listenAddr, http.HandlerFunc(serverResponse))
+	err = upgradeable_http.ListenAndServe(*listenAddr, http.HandlerFunc(serverResponse))
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}

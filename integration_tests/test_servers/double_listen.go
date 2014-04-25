@@ -24,19 +24,18 @@ func main() {
 
 	upgradeable_http.StartupDelay = 100 * time.Millisecond
 	upgradeable_http.CloseWaitTimeout = 500 * time.Millisecond
-	m := upgradeable_http.NewManager()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	go serve(m, "one", *listenAddr1, wg)
-	go serve(m, "two", *listenAddr2, wg)
+	go serve(*listenAddr1, "one", wg)
+	go serve(*listenAddr2, "two", wg)
 
 	wg.Wait()
 }
 
-func serve(m upgradeable_http.Manager, ident, listenAddr string, wg *sync.WaitGroup) {
+func serve(listenAddr, ident string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	err := m.ListenAndServe(ident, listenAddr, http.HandlerFunc(serverResponse))
+	err := upgradeable_http.ListenAndServe(listenAddr, http.HandlerFunc(serverResponse), ident)
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}

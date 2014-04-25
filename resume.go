@@ -15,21 +15,29 @@ import (
 var (
 	StartupDelay     = 1 * time.Second
 	CloseWaitTimeout = 30 * time.Second
+	theManager       = &manager{}
 )
 
-type Manager interface {
-	ListenAndServe(ident, addr string, handler http.Handler) error
+func ListenAndServe(addr string, handler http.Handler, idents ...string) error {
+	theManager.once.Do(theManager.setup)
+
+	ident := "default"
+	if len(idents) >= 1 {
+		ident = idents[0]
+	}
+
+	return theManager.listenAndServe(addr, handler, ident)
 }
 
 type manager struct {
+	once            sync.Once
 	listeners       map[string]*GracefulListener
 	listenersLock   sync.Mutex
 	activeListeners sync.WaitGroup
 	inParent        bool
 }
 
-func NewManager() (m *manager) {
-	m = &manager{}
+func (m *manager) setup() {
 	m.listeners = make(map[string]*GracefulListener)
 	m.inParent = os.Getenv("TEMPORARY_CHILD") != "1"
 
@@ -38,10 +46,9 @@ func NewManager() (m *manager) {
 	if m.inParent {
 		go m.stopTemporaryChild()
 	}
-	return
 }
 
-func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error {
+func (m *manager) listenAndServe(addr string, handler http.Handler, ident string) error {
 	m.activeListeners.Add(1)
 	defer m.activeListeners.Done()
 
