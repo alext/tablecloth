@@ -21,6 +21,7 @@ func main() {
 	flag.Parse()
 
 	upgradeable_http.StartupDelay = 100 * time.Millisecond
+	upgradeable_http.CloseWaitTimeout = 500 * time.Millisecond
 	m := upgradeable_http.NewManager()
 
 	err := m.ListenAndServe("default", *listenAddr, http.HandlerFunc(serverResponse))
