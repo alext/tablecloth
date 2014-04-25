@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	StartupDelay = 1 * time.Second
+	StartupDelay     = 1 * time.Second
 	CloseWaitTimeout = 30 * time.Second
 )
 

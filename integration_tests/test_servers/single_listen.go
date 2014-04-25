@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"syscall"
@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	startTime time.Time
-	listenAddr *string = flag.String("listenAddr", ":8081", "The address to listen on")
+	startTime       time.Time
+	listenAddr      *string = flag.String("listenAddr", ":8081", "The address to listen on")
 	closeTimeoutStr *string = flag.String("closeTimeout", "500ms", "How long to wait for connections to gracefully close")
 )
 
