@@ -10,8 +10,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/alext/graceful_listener"
 )
 
 var (
@@ -23,7 +21,7 @@ type Manager interface {
 }
 
 type manager struct {
-	listeners       map[string]*graceful_listener.Listener
+	listeners       map[string]*GracefulListener
 	listenersLock   sync.Mutex
 	activeListeners sync.WaitGroup
 	inParent        bool
@@ -31,7 +29,7 @@ type manager struct {
 
 func NewManager() (m *manager) {
 	m = &manager{}
-	m.listeners = make(map[string]*graceful_listener.Listener)
+	m.listeners = make(map[string]*GracefulListener)
 	m.inParent = os.Getenv("TEMPORARY_CHILD") != "1"
 
 	go m.handleSignals()
@@ -46,7 +44,7 @@ func (m *manager) ListenAndServe(ident, addr string, handler http.Handler) error
 	m.activeListeners.Add(1)
 	defer m.activeListeners.Done()
 
-	l, err := graceful_listener.ResumeOrStart(listenFdFromEnv(ident), addr)
+	l, err := ResumeOrListen(listenFdFromEnv(ident), addr)
 	if err != nil {
 		return err
 	}
