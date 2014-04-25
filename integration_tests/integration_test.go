@@ -84,9 +84,9 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 100, 5 * time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 4 * time.Second)
 
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
 
 			metrics := <- resultCh
@@ -100,14 +100,17 @@ func startServer(server string, port int) (cmd *exec.Cmd, err error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()
-	time.Sleep(1 * time.Second)
+	time.Sleep(50 * time.Millisecond)
 
 	return
 }
 
 func reloadServer(cmd *exec.Cmd) {
 	cmd.Process.Signal(syscall.SIGHUP)
-	time.Sleep(3 * time.Second)
+	// Wait until the reload has completed
+	// 2 * StartupDelay(1s) - once in temp child, once in new parent
+	// plus a little bit to allow for other delays (eg waiting for connection close)
+	time.Sleep(2500 * time.Millisecond)
 }
 
 func stopServer(cmd *exec.Cmd) {
