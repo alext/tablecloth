@@ -17,11 +17,12 @@ func TestManager(t *testing.T) {
 
 var _ = Describe("Adding listeners", func() {
 	var (
-		setupCount = 0
+		setupCount int
 	)
 
 	BeforeEach(func() {
 		theManager = &manager{}
+		setupCount = 0
 		setupFunc = func() {
 			theManager.listeners = make(map[string]*GracefulListener)
 			setupCount += 1
@@ -50,11 +51,39 @@ var _ = Describe("Adding listeners", func() {
 		Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
 	})
 
-	It("Should return an error if given duplicate idents", func() {
-		go ListenAndServe("127.0.0.1:8081", http.NotFoundHandler(), "foo")
-		time.Sleep(10 * time.Millisecond)
-		err := ListenAndServe("127.0.0.1:8082", http.NotFoundHandler(), "foo")
+	Context("listening on multiple addresses", func() {
+		It("Should allow listening on multiple addresses", func() {
+			go ListenAndServe("127.0.0.1:8081", http.NotFoundHandler(), "one")
+			go ListenAndServe("127.0.0.1:8082", http.NotFoundHandler(), "two")
+			time.Sleep(10 * time.Millisecond)
 
-		Expect(err).To(MatchError("duplicate ident"))
+			listener := theManager.listeners["one"]
+			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
+
+			listener = theManager.listeners["two"]
+			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8082"))
+		})
+
+		It("Should only run the setup function once", func() {
+			go ListenAndServe("127.0.0.1:8081", http.NotFoundHandler(), "one")
+			go ListenAndServe("127.0.0.1:8081", http.NotFoundHandler(), "two")
+			time.Sleep(10 * time.Millisecond)
+
+			Expect(setupCount).To(Equal(1))
+		})
+
+		It("Should return an error if given duplicate idents", func() {
+			go ListenAndServe("127.0.0.1:8081", http.NotFoundHandler(), "foo")
+			time.Sleep(10 * time.Millisecond)
+			err := ListenAndServe("127.0.0.1:8082", http.NotFoundHandler(), "foo")
+
+			Expect(err).To(MatchError("duplicate ident"))
+
+			listener := theManager.listeners["foo"]
+			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
+		})
 	})
 })
