@@ -130,7 +130,6 @@ func (m *manager) upgradeServer() {
 		panic(err)
 	}
 
-	// TODO: Better means of waiting for child to start serving
 	time.Sleep(StartupDelay)
 
 	fds := make(map[string]int, len(m.listeners))
@@ -196,7 +195,6 @@ func (m *manager) stopTemporaryChild() {
 		return
 	}
 
-	// TODO: Better meand of waiting for parent to start
 	time.Sleep(StartupDelay)
 
 	proc, err := os.FindProcess(childPid)
