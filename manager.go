@@ -1,6 +1,7 @@
 package upgradeable_http
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"os/exec"
@@ -16,10 +17,13 @@ var (
 	StartupDelay     = 1 * time.Second
 	CloseWaitTimeout = 30 * time.Second
 	theManager       = &manager{}
+
+	// variable indirection to facilitate testing
+	setupFunc = theManager.setup
 )
 
 func ListenAndServe(addr string, handler http.Handler, idents ...string) error {
-	theManager.once.Do(theManager.setup)
+	theManager.once.Do(setupFunc)
 
 	ident := "default"
 	if len(idents) >= 1 {
@@ -58,6 +62,10 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	}
 
 	m.listenersLock.Lock()
+	if m.listeners[ident] != nil {
+		m.listenersLock.Unlock()
+		return errors.New("duplicate ident")
+	}
 	m.listeners[ident] = l
 	m.listenersLock.Unlock()
 
