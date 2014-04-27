@@ -69,10 +69,6 @@ func (l *gracefulListener) Close() error {
 	return l.Listener.Close()
 }
 
-func (l *gracefulListener) Stopping() bool {
-	return l.stopping
-}
-
 func (l *gracefulListener) getCount() int64 {
 	return atomic.LoadInt64(&l.connCount)
 }
@@ -83,7 +79,7 @@ func (l *gracefulListener) decCount() {
 	atomic.AddInt64(&l.connCount, -1)
 }
 
-func (l *gracefulListener) WaitForClients(timeout time.Duration) error {
+func (l *gracefulListener) waitForClients(timeout time.Duration) error {
 	if l.getCount() == 0 {
 		return nil
 	}
@@ -103,7 +99,7 @@ func (l *gracefulListener) WaitForClients(timeout time.Duration) error {
 	}
 }
 
-func (l *gracefulListener) PrepareFd() (fd int, err error) {
+func (l *gracefulListener) prepareFd() (fd int, err error) {
 	tl := l.Listener.(*net.TCPListener)
 	fl, err := tl.File()
 	if err != nil {

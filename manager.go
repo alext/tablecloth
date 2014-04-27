@@ -62,8 +62,8 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	}
 
 	err = http.Serve(l, handler)
-	if l.Stopping() {
-		err = l.WaitForClients(CloseWaitTimeout)
+	if l.stopping {
+		err = l.waitForClients(CloseWaitTimeout)
 		if m.inParent {
 			// TODO: notify/log WaitForClients errors somehow.
 
@@ -134,7 +134,7 @@ func (m *manager) upgradeServer() {
 
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
-		fd, err := l.PrepareFd()
+		fd, err := l.prepareFd()
 		if err != nil {
 			panic(err)
 			// TODO: better error handling
@@ -172,7 +172,7 @@ func (m *manager) startTemporaryChild() (proc *os.Process, err error) {
 
 	em := newEnvMap(os.Environ())
 	for ident, l := range m.listeners {
-		fd, err := l.PrepareFd()
+		fd, err := l.prepareFd()
 		if err != nil {
 			return nil, err
 		}
