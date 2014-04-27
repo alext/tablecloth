@@ -35,14 +35,14 @@ func ListenAndServe(addr string, handler http.Handler, idents ...string) error {
 
 type manager struct {
 	once            sync.Once
-	listeners       map[string]*GracefulListener
+	listeners       map[string]*gracefulListener
 	listenersLock   sync.Mutex
 	activeListeners sync.WaitGroup
 	inParent        bool
 }
 
 func (m *manager) setup() {
-	m.listeners = make(map[string]*GracefulListener)
+	m.listeners = make(map[string]*gracefulListener)
 	m.inParent = os.Getenv("TEMPORARY_CHILD") != "1"
 
 	go m.handleSignals()
@@ -62,8 +62,8 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	}
 
 	err = http.Serve(l, handler)
-	if l.Stopping() {
-		err = l.WaitForClients(CloseWaitTimeout)
+	if l.stopping {
+		err = l.waitForClients(CloseWaitTimeout)
 		if m.inParent {
 			// TODO: notify/log WaitForClients errors somehow.
 
@@ -84,7 +84,7 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	return nil
 }
 
-func (m *manager) setupListener(addr, ident string) (l *GracefulListener, err error) {
+func (m *manager) setupListener(addr, ident string) (l *gracefulListener, err error) {
 	m.listenersLock.Lock()
 	defer m.listenersLock.Unlock()
 
@@ -92,7 +92,7 @@ func (m *manager) setupListener(addr, ident string) (l *GracefulListener, err er
 		return nil, errors.New("duplicate ident")
 	}
 
-	l, err = ResumeOrListen(listenFdFromEnv(ident), addr)
+	l, err = resumeOrListen(listenFdFromEnv(ident), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (m *manager) upgradeServer() {
 
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
-		fd, err := l.PrepareFd()
+		fd, err := l.prepareFd()
 		if err != nil {
 			panic(err)
 			// TODO: better error handling
@@ -172,7 +172,7 @@ func (m *manager) startTemporaryChild() (proc *os.Process, err error) {
 
 	em := newEnvMap(os.Environ())
 	for ident, l := range m.listeners {
-		fd, err := l.PrepareFd()
+		fd, err := l.prepareFd()
 		if err != nil {
 			return nil, err
 		}

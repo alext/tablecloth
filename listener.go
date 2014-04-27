@@ -11,7 +11,7 @@ import (
 
 type watchedConn struct {
 	net.Conn
-	listener *GracefulListener
+	listener *gracefulListener
 }
 
 func (c *watchedConn) Close() (err error) {
@@ -20,7 +20,7 @@ func (c *watchedConn) Close() (err error) {
 	return
 }
 
-func ResumeOrListen(fd int, addr string) (*GracefulListener, error) {
+func resumeOrListen(fd int, addr string) (*gracefulListener, error) {
 	var l net.Listener
 	var err error
 	if fd != 0 {
@@ -37,16 +37,16 @@ func ResumeOrListen(fd int, addr string) (*GracefulListener, error) {
 		return nil, err
 	}
 
-	return &GracefulListener{Listener: l}, nil
+	return &gracefulListener{Listener: l}, nil
 }
 
-type GracefulListener struct {
+type gracefulListener struct {
 	net.Listener
 	connCount int64
 	stopping  bool
 }
 
-func (l *GracefulListener) Addr() (a net.Addr) {
+func (l *gracefulListener) Addr() (a net.Addr) {
 	tcpListener, ok := l.Listener.(*net.TCPListener)
 	if ok {
 		return tcpListener.Addr()
@@ -54,7 +54,7 @@ func (l *GracefulListener) Addr() (a net.Addr) {
 	return nil
 }
 
-func (l *GracefulListener) Accept() (c net.Conn, err error) {
+func (l *gracefulListener) Accept() (c net.Conn, err error) {
 	c, err = l.Listener.Accept()
 	if err != nil {
 		return
@@ -64,26 +64,22 @@ func (l *GracefulListener) Accept() (c net.Conn, err error) {
 	return
 }
 
-func (l *GracefulListener) Close() error {
+func (l *gracefulListener) Close() error {
 	l.stopping = true
 	return l.Listener.Close()
 }
 
-func (l *GracefulListener) Stopping() bool {
-	return l.stopping
-}
-
-func (l *GracefulListener) getCount() int64 {
+func (l *gracefulListener) getCount() int64 {
 	return atomic.LoadInt64(&l.connCount)
 }
-func (l *GracefulListener) incCount() {
+func (l *gracefulListener) incCount() {
 	atomic.AddInt64(&l.connCount, 1)
 }
-func (l *GracefulListener) decCount() {
+func (l *gracefulListener) decCount() {
 	atomic.AddInt64(&l.connCount, -1)
 }
 
-func (l *GracefulListener) WaitForClients(timeout time.Duration) error {
+func (l *gracefulListener) waitForClients(timeout time.Duration) error {
 	if l.getCount() == 0 {
 		return nil
 	}
@@ -103,7 +99,7 @@ func (l *GracefulListener) WaitForClients(timeout time.Duration) error {
 	}
 }
 
-func (l *GracefulListener) PrepareFd() (fd int, err error) {
+func (l *gracefulListener) prepareFd() (fd int, err error) {
 	tl := l.Listener.(*net.TCPListener)
 	fl, err := tl.File()
 	if err != nil {
