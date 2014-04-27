@@ -35,14 +35,14 @@ func ListenAndServe(addr string, handler http.Handler, idents ...string) error {
 
 type manager struct {
 	once            sync.Once
-	listeners       map[string]*GracefulListener
+	listeners       map[string]*gracefulListener
 	listenersLock   sync.Mutex
 	activeListeners sync.WaitGroup
 	inParent        bool
 }
 
 func (m *manager) setup() {
-	m.listeners = make(map[string]*GracefulListener)
+	m.listeners = make(map[string]*gracefulListener)
 	m.inParent = os.Getenv("TEMPORARY_CHILD") != "1"
 
 	go m.handleSignals()
@@ -84,7 +84,7 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	return nil
 }
 
-func (m *manager) setupListener(addr, ident string) (l *GracefulListener, err error) {
+func (m *manager) setupListener(addr, ident string) (l *gracefulListener, err error) {
 	m.listenersLock.Lock()
 	defer m.listenersLock.Unlock()
 
@@ -92,7 +92,7 @@ func (m *manager) setupListener(addr, ident string) (l *GracefulListener, err er
 		return nil, errors.New("duplicate ident")
 	}
 
-	l, err = ResumeOrListen(listenFdFromEnv(ident), addr)
+	l, err = resumeOrListen(listenFdFromEnv(ident), addr)
 	if err != nil {
 		return nil, err
 	}

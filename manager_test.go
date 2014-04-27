@@ -24,7 +24,7 @@ var _ = Describe("Adding listeners", func() {
 		theManager = &manager{}
 		setupCount = 0
 		setupFunc = func() {
-			theManager.listeners = make(map[string]*GracefulListener)
+			theManager.listeners = make(map[string]*gracefulListener)
 			setupCount += 1
 		}
 	})
@@ -38,7 +38,7 @@ var _ = Describe("Adding listeners", func() {
 		time.Sleep(10 * time.Millisecond)
 
 		listener := theManager.listeners["one"]
-		Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+		Expect(listener).To(BeAssignableToTypeOf(&gracefulListener{}))
 		Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
 	})
 
@@ -47,7 +47,7 @@ var _ = Describe("Adding listeners", func() {
 		time.Sleep(10 * time.Millisecond)
 
 		listener := theManager.listeners["default"]
-		Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+		Expect(listener).To(BeAssignableToTypeOf(&gracefulListener{}))
 		Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
 	})
 
@@ -58,11 +58,11 @@ var _ = Describe("Adding listeners", func() {
 			time.Sleep(10 * time.Millisecond)
 
 			listener := theManager.listeners["one"]
-			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener).To(BeAssignableToTypeOf(&gracefulListener{}))
 			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
 
 			listener = theManager.listeners["two"]
-			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener).To(BeAssignableToTypeOf(&gracefulListener{}))
 			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8082"))
 		})
 
@@ -82,7 +82,7 @@ var _ = Describe("Adding listeners", func() {
 			Expect(err).To(MatchError("duplicate ident"))
 
 			listener := theManager.listeners["foo"]
-			Expect(listener).To(BeAssignableToTypeOf(&GracefulListener{}))
+			Expect(listener).To(BeAssignableToTypeOf(&gracefulListener{}))
 			Expect(listener.Addr().String()).To(Equal("127.0.0.1:8081"))
 		})
 	})
