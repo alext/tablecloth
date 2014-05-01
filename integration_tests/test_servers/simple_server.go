@@ -11,10 +11,13 @@ import (
 	"github.com/alext/upgradeable_http"
 )
 
+const greeting = "Hello"
+
 var (
 	startTime       time.Time
 	listenAddr      *string = flag.String("listenAddr", ":8081", "The address to listen on")
 	closeTimeoutStr *string = flag.String("closeTimeout", "500ms", "How long to wait for connections to gracefully close")
+	workingDir      *string = flag.String("workingDir", "", "The directory to change to before re-execing")
 )
 
 func main() {
@@ -29,6 +32,10 @@ func main() {
 	}
 	upgradeable_http.CloseWaitTimeout = closeTimeout
 
+	if *workingDir != "" {
+		upgradeable_http.WorkingDir = *workingDir
+	}
+
 	err = upgradeable_http.ListenAndServe(*listenAddr, http.HandlerFunc(serverResponse))
 	if err != nil {
 		log.Fatal("Serve error: ", err)
@@ -40,5 +47,5 @@ func serverResponse(w http.ResponseWriter, r *http.Request) {
 
 	// Force closing of the connection to prevent keepalive
 	w.Header().Set("Connection", "close")
-	fmt.Fprintf(w, "Hello from %d\nStarted at %v\n", syscall.Getpid(), startTime)
+	fmt.Fprintf(w, "%s (pid=%d)\nStarted at %v\n", greeting, syscall.Getpid(), startTime)
 }

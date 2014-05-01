@@ -15,6 +15,7 @@ import (
 var (
 	StartupDelay     = 5 * time.Second
 	CloseWaitTimeout = 30 * time.Second
+	WorkingDir       string
 	theManager       = &manager{}
 
 	// variable indirection to facilitate testing
@@ -160,6 +161,9 @@ func (m *manager) reExecSelf(fds map[string]int, childPid int) {
 	}
 	em["TEMPORARY_CHILD_PID"] = strconv.Itoa(childPid)
 
+	if WorkingDir != "" {
+		os.Chdir(WorkingDir)
+	}
 	syscall.Exec(os.Args[0], os.Args, em.ToEnv())
 }
 
@@ -179,6 +183,9 @@ func (m *manager) startTemporaryChild() (proc *os.Process, err error) {
 	}
 	em["TEMPORARY_CHILD"] = "1"
 	cmd.Env = em.ToEnv()
+	if WorkingDir != "" {
+		cmd.Dir = WorkingDir
+	}
 
 	err = cmd.Start()
 	if err != nil {
