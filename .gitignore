@@ -1,6 +1,5 @@
 
 # Test servers
-/integration_tests/test_servers/single_listen
+/integration_tests/test_servers/simple_server
 /integration_tests/test_servers/double_listen
-/integration_tests/test_servers/v1/server
-/integration_tests/test_servers/v2/server
+/integration_tests/test_servers/v*

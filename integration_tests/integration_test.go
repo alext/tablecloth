@@ -50,7 +50,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 	Context("Listening on a single port", func() {
 
 		BeforeEach(func() {
-			serverCmd = startServer("single_listen", "-listenAddr=127.0.0.1:8081")
+			serverCmd = startServer("simple_server", "-listenAddr=127.0.0.1:8081")
 		})
 
 		It("Should listen on the given address", func() {
@@ -162,7 +162,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 	It("should still restart if connections haven't closed within the timeout", func() {
 		// Start with a closeTimeout of 100ms (which is less that the response time of 250ms)
-		serverCmd = startServer("single_listen", "-listenAddr=127.0.0.1:8081", "-closeTimeout=100ms")
+		serverCmd = startServer("simple_server", "-listenAddr=127.0.0.1:8081", "-closeTimeout=100ms")
 		parentPid := serverCmd.Process.Pid
 
 		go http.Get("http://127.0.0.1:8081/")
@@ -176,7 +176,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 		Expect(resp.StatusCode).To(Equal(200))
 
-		Expect(string(newBody)).To(ContainSubstring("Hello from %d", parentPid))
+		Expect(string(newBody)).To(ContainSubstring("Hello (pid=%d)", parentPid))
 	})
 
 	Describe("changing the working directory", func() {
@@ -200,7 +200,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			Expect(err).To(BeNil())
 			body, _ := ioutil.ReadAll(resp.Body)
 
-			Expect(string(body)).To(ContainSubstring("Hello from v1 pid: %d", parentPid))
+			Expect(string(body)).To(ContainSubstring("Hello from v1 (pid=%d)", parentPid))
 
 			reloadServer(serverCmd)
 
@@ -208,7 +208,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			Expect(err).To(BeNil())
 			body, _ = ioutil.ReadAll(resp.Body)
 
-			Expect(string(body)).To(ContainSubstring("Hello from v2 pid: %d", parentPid))
+			Expect(string(body)).To(ContainSubstring("Hello from v2 (pid=%d)", parentPid))
 		})
 
 		It("should work with a working directory that's a symlink", func() {
@@ -224,7 +224,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			Expect(err).To(BeNil())
 			body, _ := ioutil.ReadAll(resp.Body)
 
-			Expect(string(body)).To(ContainSubstring("Hello from v1 pid: %d", parentPid))
+			Expect(string(body)).To(ContainSubstring("Hello from v1 (pid=%d)", parentPid))
 
 			err = os.Remove(cwd+"/test_servers/current")
 			Expect(err).To(BeNil())
@@ -237,7 +237,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			Expect(err).To(BeNil())
 			body, _ = ioutil.ReadAll(resp.Body)
 
-			Expect(string(body)).To(ContainSubstring("Hello from v2 pid: %d", parentPid))
+			Expect(string(body)).To(ContainSubstring("Hello from v2 (pid=%d)", parentPid))
 		})
 
 	})
