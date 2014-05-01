@@ -12,22 +12,93 @@ import (
 	"time"
 )
 
-var (
-	StartupDelay     = 5 * time.Second
-	CloseWaitTimeout = 30 * time.Second
-	WorkingDir       string
-	theManager       = &manager{}
+// How long to wait for a newly started process to start serving requests.
+var StartupDelay = 5 * time.Second
 
+// The maximum time to wait for outstanding connections to complete after
+// closing the listeners.
+var CloseWaitTimeout = 30 * time.Second
+
+// Optional: the working directory for the application.  This directory (if specified)
+// will be changed to before re-execing.
+//
+// This is typically used when the working directory is accessed via a symlink
+// so that the symlink is re-evaluated when re-execing. This allows updating a symlink
+// to point at a new version of the application, and for this to be picked up.
+var WorkingDir string
+
+var (
+	theManager = &manager{}
 	// variable indirection to facilitate testing
 	setupFunc = theManager.setup
 )
 
-func ListenAndServe(addr string, handler http.Handler, idents ...string) error {
+/*
+ListenAndServe wraps the equivelent function from net/http, and therefore behaves in
+the same way.  It adds the necessary tracking for the connections created so that
+they can be passed to new processes etc.
+
+If using more than one call to ListenAndServe in an application, each call must pass
+a unique string as identifier.  This is used to identify the file descriptors passed
+to new processes.  If identifier is not specified, it uses a value of "default".
+
+In order for the seamless restarts to work it is important that the calling application
+exits after all ListenAndServe calls have returned.
+
+A simple example:
+
+package main
+
+	import (
+		"fmt"
+		"net/http"
+
+		"github.com/alext/upgradeable_http"
+	)
+
+	func main() {
+		upgradeable_http.ListenAndServe(":8080", http.HandlerFunc(handler))
+	}
+
+	func handler(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello world")
+	}
+
+A more involved example that uses multiple ports:
+
+	package main
+
+	import (
+		"fmt"
+		"net/http"
+		"sync"
+
+		"github.com/alext/upgradeable_http"
+	)
+
+	func main() {
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		go serve(":8080", "main", wg)
+		go serve(":8081", "admin", wg)
+		wg.Wait()
+	}
+
+	func serve(listenAddr, ident string, wg *sync.WaitGroup) {
+		defer wg.Done()
+		upgradeable_http.ListenAndServe(listenAddr, http.HandlerFunc(handler), ident)
+	}
+
+	func handler(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello world")
+	}
+*/
+func ListenAndServe(addr string, handler http.Handler, identifier ...string) error {
 	theManager.once.Do(setupFunc)
 
 	ident := "default"
-	if len(idents) >= 1 {
-		ident = idents[0]
+	if len(identifier) >= 1 {
+		ident = identifier[0]
 	}
 
 	return theManager.listenAndServe(addr, handler, ident)
