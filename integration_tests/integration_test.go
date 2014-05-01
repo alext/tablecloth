@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -177,10 +178,76 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 		Expect(string(newBody)).To(ContainSubstring("Hello from %d", parentPid))
 	})
+
+	Describe("changing the working directory", func() {
+		var (
+			cwd string
+		)
+		BeforeEach(func() {
+			cwd, _ = os.Getwd()
+		})
+		AfterEach(func() {
+			os.Chdir(cwd)
+			os.Remove(cwd+"/test_servers/current")
+		})
+		It("should change the working directory before re-execing", func() {
+			os.Chdir(cwd+"/test_servers/v1")
+
+			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/v2")
+			parentPid := serverCmd.Process.Pid
+
+			resp, err := http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			body, _ := ioutil.ReadAll(resp.Body)
+
+			Expect(string(body)).To(ContainSubstring("Hello from v1 pid: %d", parentPid))
+
+			reloadServer(serverCmd)
+
+			resp, err = http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			body, _ = ioutil.ReadAll(resp.Body)
+
+			Expect(string(body)).To(ContainSubstring("Hello from v2 pid: %d", parentPid))
+		})
+
+		It("should work with a working directory that's a symlink", func() {
+			err := os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")
+			Expect(err).To(BeNil())
+
+			os.Chdir(cwd+"/test_servers/current")
+
+			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+			parentPid := serverCmd.Process.Pid
+
+			resp, err := http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			body, _ := ioutil.ReadAll(resp.Body)
+
+			Expect(string(body)).To(ContainSubstring("Hello from v1 pid: %d", parentPid))
+
+			err = os.Remove(cwd+"/test_servers/current")
+			Expect(err).To(BeNil())
+			err = os.Symlink(cwd+"/test_servers/v2", cwd+"/test_servers/current")
+			Expect(err).To(BeNil())
+
+			reloadServer(serverCmd)
+
+			resp, err = http.Get("http://127.0.0.1:8081/")
+			Expect(err).To(BeNil())
+			body, _ = ioutil.ReadAll(resp.Body)
+
+			Expect(string(body)).To(ContainSubstring("Hello from v2 pid: %d", parentPid))
+		})
+
+	})
 })
 
 func startServer(server string, args ...string) (cmd *exec.Cmd) {
-	cmd = exec.Command(fmt.Sprintf("./test_servers/%s", server), args...)
+	if ! strings.HasPrefix(server, "./") {
+		server = fmt.Sprintf("./test_servers/%s", server)
+	}
+	cmd = exec.Command(server, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
