@@ -82,12 +82,12 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 3 * time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 3*time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
 
-			metrics := <- resultCh
+			metrics := <-resultCh
 			Expect(metrics.StatusCodes["200"]).To(Equal(int(metrics.Requests)))
 		})
 	})
@@ -149,12 +149,12 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 3 * time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 3*time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
 
-			metrics := <- resultCh
+			metrics := <-resultCh
 			Expect(metrics.StatusCodes["200"]).To(Equal(int(metrics.Requests)))
 		})
 
@@ -188,10 +188,10 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 		})
 		AfterEach(func() {
 			os.Chdir(cwd)
-			os.Remove(cwd+"/test_servers/current")
+			os.Remove(cwd + "/test_servers/current")
 		})
 		It("should change the working directory before re-execing", func() {
-			os.Chdir(cwd+"/test_servers/v1")
+			os.Chdir(cwd + "/test_servers/v1")
 
 			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/v2")
 			parentPid := serverCmd.Process.Pid
@@ -215,7 +215,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 			err := os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")
 			Expect(err).To(BeNil())
 
-			os.Chdir(cwd+"/test_servers/current")
+			os.Chdir(cwd + "/test_servers/current")
 
 			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
 			parentPid := serverCmd.Process.Pid
@@ -226,7 +226,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 
 			Expect(string(body)).To(ContainSubstring("Hello from v1 (pid=%d)", parentPid))
 
-			err = os.Remove(cwd+"/test_servers/current")
+			err = os.Remove(cwd + "/test_servers/current")
 			Expect(err).To(BeNil())
 			err = os.Symlink(cwd+"/test_servers/v2", cwd+"/test_servers/current")
 			Expect(err).To(BeNil())
@@ -244,7 +244,7 @@ var _ = Describe("Upgradeable HTTP listener", func() {
 })
 
 func startServer(server string, args ...string) (cmd *exec.Cmd) {
-	if ! strings.HasPrefix(server, "./") {
+	if !strings.HasPrefix(server, "./") {
 		server = fmt.Sprintf("./test_servers/%s", server)
 	}
 	cmd = exec.Command(server, args...)

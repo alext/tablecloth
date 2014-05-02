@@ -89,11 +89,11 @@ func (l *gracefulListener) waitForClients(timeout time.Duration) error {
 
 	for {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			if l.getCount() == 0 {
 				return nil
 			}
-		case <- timeoutCh:
+		case <-timeoutCh:
 			return fmt.Errorf("Still %d active clients after %s", l.getCount(), timeout)
 		}
 	}
