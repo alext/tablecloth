@@ -1,4 +1,4 @@
-package upgradeable_http
+package tablecloth
 
 import (
 	"net/http"

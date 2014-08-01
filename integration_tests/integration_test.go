@@ -16,14 +16,14 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 )
 
-func TestUpgradeableHTTP(t *testing.T) {
+func TestTablecloth(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	err := buildTestServers()
 	if err != nil {
 		t.Fatalf("Failed to build test servers: %v", err)
 	}
-	RunSpecs(t, "Upgradeable HTTP")
+	RunSpecs(t, "Tablecloth")
 }
 
 func buildTestServers() error {
@@ -38,7 +38,7 @@ func buildTestServers() error {
 	return nil
 }
 
-var _ = Describe("Upgradeable HTTP listener", func() {
+var _ = Describe("Tablecloth HTTP listener", func() {
 	var (
 		serverCmd *exec.Cmd
 	)

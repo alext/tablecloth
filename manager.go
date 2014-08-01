@@ -1,4 +1,4 @@
-package upgradeable_http
+package tablecloth
 
 import (
 	"errors"
@@ -53,11 +53,11 @@ package main
 		"fmt"
 		"net/http"
 
-		"github.com/alext/upgradeable_http"
+		"github.com/alext/tablecloth"
 	)
 
 	func main() {
-		upgradeable_http.ListenAndServe(":8080", http.HandlerFunc(handler))
+		tablecloth.ListenAndServe(":8080", http.HandlerFunc(handler))
 	}
 
 	func handler(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +73,7 @@ A more involved example that uses multiple ports:
 		"net/http"
 		"sync"
 
-		"github.com/alext/upgradeable_http"
+		"github.com/alext/tablecloth"
 	)
 
 	func main() {
@@ -86,7 +86,7 @@ A more involved example that uses multiple ports:
 
 	func serve(listenAddr, ident string, wg *sync.WaitGroup) {
 		defer wg.Done()
-		upgradeable_http.ListenAndServe(listenAddr, http.HandlerFunc(handler), ident)
+		tablecloth.ListenAndServe(listenAddr, http.HandlerFunc(handler), ident)
 	}
 
 	func handler(w http.ResponseWriter, r *http.Request) {

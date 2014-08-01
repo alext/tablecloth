@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alext/upgradeable_http"
+	"github.com/alext/tablecloth"
 )
 
 const greeting = "Hello"
@@ -24,19 +24,19 @@ func main() {
 	startTime = time.Now()
 	flag.Parse()
 
-	upgradeable_http.StartupDelay = 100 * time.Millisecond
+	tablecloth.StartupDelay = 100 * time.Millisecond
 
 	closeTimeout, err := time.ParseDuration(*closeTimeoutStr)
 	if err != nil {
 		log.Fatal("Invalid closeTimeout: ", err)
 	}
-	upgradeable_http.CloseWaitTimeout = closeTimeout
+	tablecloth.CloseWaitTimeout = closeTimeout
 
 	if *workingDir != "" {
-		upgradeable_http.WorkingDir = *workingDir
+		tablecloth.WorkingDir = *workingDir
 	}
 
-	err = upgradeable_http.ListenAndServe(*listenAddr, http.HandlerFunc(serverResponse))
+	err = tablecloth.ListenAndServe(*listenAddr, http.HandlerFunc(serverResponse))
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}

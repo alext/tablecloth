@@ -1,5 +1,5 @@
 /*
-Package upgradeable_http enables creating HTTP servers that support zero-downtime restarts. It
+Package tablecloth enables creating HTTP servers that support zero-downtime restarts. It
 wraps functions from net/http to listen for a restart signal, and then gracefully restart the
 application without dropping any requests.
 
@@ -11,4 +11,4 @@ therefore plays nicely with process supervisors like upstart.
 This implementation is based on an approach described here:
 http://blog.nella.org/zero-downtime-upgrades-of-tcp-servers-in-go/
 */
-package upgradeable_http
+package tablecloth

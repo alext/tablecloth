@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alext/upgradeable_http"
+	"github.com/alext/tablecloth"
 )
 
 var (
@@ -22,8 +22,8 @@ func main() {
 	startTime = time.Now()
 	flag.Parse()
 
-	upgradeable_http.StartupDelay = 100 * time.Millisecond
-	upgradeable_http.CloseWaitTimeout = 500 * time.Millisecond
+	tablecloth.StartupDelay = 100 * time.Millisecond
+	tablecloth.CloseWaitTimeout = 500 * time.Millisecond
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -35,7 +35,7 @@ func main() {
 
 func serve(listenAddr, ident string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	err := upgradeable_http.ListenAndServe(listenAddr, http.HandlerFunc(serverResponse), ident)
+	err := tablecloth.ListenAndServe(listenAddr, http.HandlerFunc(serverResponse), ident)
 	if err != nil {
 		log.Fatal("Serve error: ", err)
 	}
