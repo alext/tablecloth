@@ -13,7 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	vegeta "github.com/tsenart/vegeta/lib"
+	vegeta "gopkg.in/tsenart/vegeta.v2/lib"
 )
 
 func TestTablecloth(t *testing.T) {
