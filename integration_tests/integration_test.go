@@ -28,8 +28,6 @@ func TestTablecloth(t *testing.T) {
 
 func buildTestServers() error {
 	cmd := exec.Command("make", "-B")
-	cwd, _ := os.Getwd()
-	cmd.Dir = cwd + "/test_servers"
 	cmd.Dir = "./test_servers"
 	output, err := cmd.CombinedOutput()
 	if err != nil {
