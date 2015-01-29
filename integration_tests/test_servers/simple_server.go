@@ -15,9 +15,9 @@ const greeting = "Hello"
 
 var (
 	startTime       time.Time
-	listenAddr      *string = flag.String("listenAddr", ":8081", "The address to listen on")
-	closeTimeoutStr *string = flag.String("closeTimeout", "500ms", "How long to wait for connections to gracefully close")
-	workingDir      *string = flag.String("workingDir", "", "The directory to change to before re-execing")
+	listenAddr      = flag.String("listenAddr", ":8081", "The address to listen on")
+	closeTimeoutStr = flag.String("closeTimeout", "500ms", "How long to wait for connections to gracefully close")
+	workingDir      = flag.String("workingDir", "", "The directory to change to before re-execing")
 )
 
 func main() {

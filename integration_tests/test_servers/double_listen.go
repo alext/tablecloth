@@ -14,8 +14,8 @@ import (
 
 var (
 	startTime   time.Time
-	listenAddr1 *string = flag.String("listenAddr1", ":8081", "The address to listen on")
-	listenAddr2 *string = flag.String("listenAddr2", ":8082", "The address to listen on")
+	listenAddr1 = flag.String("listenAddr1", ":8081", "The address to listen on")
+	listenAddr2 = flag.String("listenAddr2", ":8082", "The address to listen on")
 )
 
 func main() {

@@ -25,7 +25,7 @@ var _ = Describe("Adding listeners", func() {
 		setupCount = 0
 		setupFunc = func() {
 			theManager.listeners = make(map[string]*gracefulListener)
-			setupCount += 1
+			setupCount++
 		}
 	})
 
