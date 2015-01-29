@@ -48,7 +48,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	Context("Listening on a single port", func() {
 
 		BeforeEach(func() {
-			serverCmd = startServer("simple_server", "-listenAddr=127.0.0.1:8081")
+			serverCmd = startServer("simple/server", "-listenAddr=127.0.0.1:8081")
 		})
 
 		It("Should listen on the given address", func() {
@@ -93,7 +93,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	Context("Listening on multiple ports", func() {
 
 		BeforeEach(func() {
-			serverCmd = startServer("double_listen", "-listenAddr1=127.0.0.1:8081", "-listenAddr2=127.0.0.1:8082")
+			serverCmd = startServer("double_listen/server", "-listenAddr1=127.0.0.1:8081", "-listenAddr2=127.0.0.1:8082")
 		})
 
 		It("Should listen on the given addresses", func() {
@@ -160,7 +160,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 	It("should still restart if connections haven't closed within the timeout", func() {
 		// Start with a closeTimeout of 100ms (which is less that the response time of 250ms)
-		serverCmd = startServer("simple_server", "-listenAddr=127.0.0.1:8081", "-closeTimeout=100ms")
+		serverCmd = startServer("simple/server", "-listenAddr=127.0.0.1:8081", "-closeTimeout=100ms")
 		parentPid := serverCmd.Process.Pid
 
 		go http.Get("http://127.0.0.1:8081/")
