@@ -14,10 +14,10 @@ type watchedConn struct {
 	listener *gracefulListener
 }
 
-func (c *watchedConn) Close() (err error) {
-	err = c.Conn.Close()
+func (c *watchedConn) Close() error {
+	err := c.Conn.Close()
 	c.listener.decCount()
-	return
+	return err
 }
 
 func resumeOrListen(fd int, addr string) (*gracefulListener, error) {
@@ -46,7 +46,7 @@ type gracefulListener struct {
 	stopping  bool
 }
 
-func (l *gracefulListener) Addr() (a net.Addr) {
+func (l *gracefulListener) Addr() net.Addr {
 	tcpListener, ok := l.Listener.(*net.TCPListener)
 	if ok {
 		return tcpListener.Addr()
@@ -57,11 +57,11 @@ func (l *gracefulListener) Addr() (a net.Addr) {
 func (l *gracefulListener) Accept() (c net.Conn, err error) {
 	c, err = l.Listener.Accept()
 	if err != nil {
-		return
+		return nil, err
 	}
 	c = &watchedConn{Conn: c, listener: l}
 	l.incCount()
-	return
+	return c, nil
 }
 
 func (l *gracefulListener) Close() error {
@@ -111,5 +111,5 @@ func (l *gracefulListener) prepareFd() (fd int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	return
+	return fd, nil
 }

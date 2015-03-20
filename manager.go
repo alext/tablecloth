@@ -155,7 +155,7 @@ func (m *manager) listenAndServe(addr string, handler http.Handler, ident string
 	return nil
 }
 
-func (m *manager) setupListener(addr, ident string) (l *gracefulListener, err error) {
+func (m *manager) setupListener(addr, ident string) (*gracefulListener, error) {
 	m.listenersLock.Lock()
 	defer m.listenersLock.Unlock()
 
@@ -163,12 +163,12 @@ func (m *manager) setupListener(addr, ident string) (l *gracefulListener, err er
 		return nil, errors.New("duplicate ident")
 	}
 
-	l, err = resumeOrListen(listenFdFromEnv(ident), addr)
+	l, err := resumeOrListen(listenFdFromEnv(ident), addr)
 	if err != nil {
 		return nil, err
 	}
 	m.listeners[ident] = l
-	return
+	return l, nil
 }
 
 func listenFdFromEnv(ident string) int {

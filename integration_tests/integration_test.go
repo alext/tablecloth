@@ -241,18 +241,18 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	})
 })
 
-func startServer(server string, args ...string) (cmd *exec.Cmd) {
+func startServer(server string, args ...string) *exec.Cmd {
 	if !strings.HasPrefix(server, "./") {
 		server = fmt.Sprintf("./test_servers/%s", server)
 	}
-	cmd = exec.Command(server, args...)
+	cmd := exec.Command(server, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	Expect(err).To(BeNil())
 	time.Sleep(50 * time.Millisecond)
 
-	return
+	return cmd
 }
 
 func reloadServer(cmd *exec.Cmd) {
