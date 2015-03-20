@@ -260,6 +260,48 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		})
 
 	})
+
+	Describe("handling failures starting the new version", func() {
+		var cwd string
+		BeforeEach(func() {
+			cwd, _ = os.Getwd()
+			Expect(os.Symlink(cwd+"/test_servers/simple", cwd+"/test_servers/current")).To(Succeed())
+			Expect(os.Chdir(cwd + "/test_servers/current")).To(Succeed())
+		})
+		AfterEach(func() {
+			os.Chdir(cwd)
+			os.Remove(cwd + "/test_servers/current")
+		})
+
+		Context("the new server fails to start", func() {
+			It("should continue running the old server", func() {
+				serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				firstBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				err = os.Remove(cwd + "/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Non-existent directory will cause starting the server to error
+				err = os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				reloadServer(serverCmd)
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				newBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				Expect(newBody).To(Equal(firstBody))
+			})
+		})
+	})
 })
 
 func startServer(server string, args ...string) *exec.Cmd {

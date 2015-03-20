@@ -2,6 +2,7 @@ package tablecloth
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -188,13 +189,17 @@ func (m *manager) handleSignals() {
 	defer m.listenersLock.Unlock()
 
 	if m.inParent {
-		m.upgradeServer()
+		err := m.upgradeServer()
+		if err != nil {
+			log.Println("[tablecloth] error starting new server, aborting reload:", err)
+			return
+		}
 	}
 
 	m.closeListeners()
 }
 
-func (m *manager) upgradeServer() {
+func (m *manager) upgradeServer() error {
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
 		fd, err := l.prepareFd()
@@ -207,13 +212,13 @@ func (m *manager) upgradeServer() {
 
 	proc, err := m.startTemporaryChild(fds)
 	if err != nil {
-		// TODO: better error handling
-		panic(err)
+		return err
 	}
 
 	time.Sleep(StartupDelay)
 
 	go m.reExecSelf(fds, proc.Pid)
+	return nil
 }
 
 func (m *manager) closeListeners() {
