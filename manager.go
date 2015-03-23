@@ -2,6 +2,7 @@ package tablecloth
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -225,6 +226,12 @@ func (m *manager) upgradeServer() error {
 
 	time.Sleep(StartupDelay)
 
+	err = assertChildStillRunning(proc.Pid)
+	if err != nil {
+		closeFds(fds)
+		return err
+	}
+
 	go m.reExecSelf(fds, proc.Pid)
 	return nil
 }
@@ -233,6 +240,17 @@ func closeFds(fds map[string]int) {
 	for ident, fd := range fds {
 		os.NewFile(uintptr(fd), ident).Close()
 	}
+}
+
+func assertChildStillRunning(pid int) error {
+	pid, err := syscall.Wait4(pid, nil, syscall.WNOHANG, nil)
+	if err != nil {
+		return fmt.Errorf("wait4 error: %s", err.Error())
+	}
+	if pid != 0 {
+		return fmt.Errorf("child no longer running after StartupDelay(%s)", StartupDelay)
+	}
+	return nil
 }
 
 func (m *manager) closeListeners() {

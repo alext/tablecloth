@@ -1,5 +1,5 @@
 
-SERVERS = simple/server double_listen/server v1/server v2/server
+SERVERS = simple/server double_listen/server v1/server v2/server errorer/server
 
 all: $(SERVERS)
 
