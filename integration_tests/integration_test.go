@@ -265,7 +265,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		var cwd string
 		BeforeEach(func() {
 			cwd, _ = os.Getwd()
-			Expect(os.Symlink(cwd+"/test_servers/simple", cwd+"/test_servers/current")).To(Succeed())
+			Expect(os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")).To(Succeed())
 			Expect(os.Chdir(cwd + "/test_servers/current")).To(Succeed())
 		})
 		AfterEach(func() {
@@ -299,6 +299,39 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				resp.Body.Close()
 
 				Expect(newBody).To(Equal(firstBody))
+			})
+
+			It("should successfully handle subsequent reload requests with a good server", func() {
+				serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				err = os.Remove(cwd + "/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+				// Non-existent directory will cause starting the server to error
+				err = os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Attempt reload with broken server
+				reloadServer(serverCmd)
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				// Now point back at a good server
+				Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+				Expect(os.Symlink(cwd+"/test_servers/v2", cwd+"/test_servers/current")).To(Succeed())
+
+				reloadServer(serverCmd)
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				body, _ := ioutil.ReadAll(resp.Body)
+				Expect(string(body)).To(ContainSubstring("Hello from v2"))
 			})
 		})
 	})

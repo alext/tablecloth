@@ -183,8 +183,13 @@ func listenFdFromEnv(ident string) int {
 func (m *manager) handleSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP)
-	_ = <-c
 
+	for _ = range c {
+		m.handleHUP()
+	}
+}
+
+func (m *manager) handleHUP() {
 	m.listenersLock.Lock()
 	defer m.listenersLock.Unlock()
 
