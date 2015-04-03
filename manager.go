@@ -195,14 +195,6 @@ func (m *manager) handleSignals() {
 }
 
 func (m *manager) upgradeServer() {
-	proc, err := m.startTemporaryChild()
-	if err != nil {
-		// TODO: better error handling
-		panic(err)
-	}
-
-	time.Sleep(StartupDelay)
-
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
 		fd, err := l.prepareFd()
@@ -212,6 +204,14 @@ func (m *manager) upgradeServer() {
 		}
 		fds[ident] = fd
 	}
+
+	proc, err := m.startTemporaryChild(fds)
+	if err != nil {
+		// TODO: better error handling
+		panic(err)
+	}
+
+	time.Sleep(StartupDelay)
 
 	go m.reExecSelf(fds, proc.Pid)
 }
@@ -238,18 +238,14 @@ func (m *manager) reExecSelf(fds map[string]int, childPid int) {
 	syscall.Exec(os.Args[0], os.Args, em.ToEnv())
 }
 
-func (m *manager) startTemporaryChild() (proc *os.Process, err error) {
+func (m *manager) startTemporaryChild(fds map[string]int) (proc *os.Process, err error) {
 
 	cmd := exec.Command(os.Args[0], os.Args[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	em := newEnvMap(os.Environ())
-	for ident, l := range m.listeners {
-		fd, err := l.prepareFd()
-		if err != nil {
-			return nil, err
-		}
+	for ident, fd := range fds {
 		em["LISTEN_FD_"+ident] = strconv.Itoa(fd)
 	}
 	em["TEMPORARY_CHILD"] = "1"

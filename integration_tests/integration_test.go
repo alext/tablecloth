@@ -88,6 +88,27 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			metrics := <-resultCh
 			Expect(metrics.StatusCodes["200"]).To(Equal(int(metrics.Requests)))
 		})
+
+		if canReadProcessFds() {
+			It("should not leak file descriptors when reloading", func() {
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				initalFds := getProcessFds(serverCmd)
+
+				reloadServer(serverCmd)
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				currentFds := getProcessFds(serverCmd)
+				Expect(currentFds).To(Equal(initalFds))
+			})
+		} else {
+			PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
+		}
 	})
 
 	Context("Listening on multiple ports", func() {
@@ -268,6 +289,30 @@ func stopServer(cmd *exec.Cmd) {
 		cmd.Process.Signal(syscall.SIGINT)
 		cmd.Process.Wait()
 	}
+}
+
+func canReadProcessFds() bool {
+	fi, err := os.Stat(fmt.Sprintf("/proc/%d/fd", os.Getpid()))
+	if err != nil {
+		return false
+	}
+	return fi.IsDir()
+}
+
+func getProcessFds(cmd *exec.Cmd) []string {
+	// Ensure any http request sockets have closed
+	time.Sleep(10 * time.Millisecond)
+
+	dir := fmt.Sprintf("/proc/%d/fd", cmd.Process.Pid)
+	fileInfos, err := ioutil.ReadDir(dir)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	fds := make([]string, 0, len(fileInfos))
+	for _, fi := range fileInfos {
+		target, err := os.Readlink(dir + "/" + fi.Name())
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		fds = append(fds, fi.Name()+"->"+target)
+	}
+	return fds
 }
 
 func startVegetaAttack(targetStrings []string, rate uint64, duration time.Duration) chan *vegeta.Metrics {
