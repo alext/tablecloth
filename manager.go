@@ -209,14 +209,17 @@ func (m *manager) upgradeServer() error {
 	for ident, l := range m.listeners {
 		fd, err := l.prepareFd()
 		if err != nil {
-			panic(err)
-			// TODO: better error handling
+			// Close any that were successfully prepared so we don't leak.
+			closeFds(fds)
+			return err
 		}
 		fds[ident] = fd
 	}
 
 	proc, err := m.startTemporaryChild(fds)
 	if err != nil {
+		// Close all the copied file descriptors so we don't leak.
+		closeFds(fds)
 		return err
 	}
 
@@ -224,6 +227,12 @@ func (m *manager) upgradeServer() error {
 
 	go m.reExecSelf(fds, proc.Pid)
 	return nil
+}
+
+func closeFds(fds map[string]int) {
+	for ident, fd := range fds {
+		os.NewFile(uintptr(fd), ident).Close()
+	}
 }
 
 func (m *manager) closeListeners() {

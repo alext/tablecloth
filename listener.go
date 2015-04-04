@@ -105,6 +105,7 @@ func (l *gracefulListener) prepareFd() (fd int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	defer fl.Close()
 
 	// The TCPListener.File() sets the underlying socket to be blocking
 	// (http://git.io/veIh6).  This alters the behaviour of Accept such that

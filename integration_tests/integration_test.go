@@ -267,6 +267,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			cwd, _ = os.Getwd()
 			Expect(os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")).To(Succeed())
 			Expect(os.Chdir(cwd + "/test_servers/current")).To(Succeed())
+			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
 		})
 		AfterEach(func() {
 			os.Chdir(cwd)
@@ -275,8 +276,6 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 		Context("the new server fails to start", func() {
 			It("should continue running the old server", func() {
-				serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
-
 				resp, err := http.Get("http://127.0.0.1:8081/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
@@ -301,9 +300,32 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				Expect(newBody).To(Equal(firstBody))
 			})
 
-			It("should successfully handle subsequent reload requests with a good server", func() {
-				serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+			if canReadProcessFds() {
+				It("should not leak file descriptors when reloading fails", func() {
+					resp, err := http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
 
+					initalFds := getProcessFds(serverCmd)
+
+					Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+					// Non-existent directory will cause starting the server to error
+					Expect(os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")).To(Succeed())
+
+					reloadServer(serverCmd)
+
+					resp, err = http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+
+					currentFds := getProcessFds(serverCmd)
+					Expect(currentFds).To(Equal(initalFds))
+				})
+			} else {
+				PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
+			}
+
+			It("should successfully handle subsequent reload requests with a good server", func() {
 				resp, err := http.Get("http://127.0.0.1:8081/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
