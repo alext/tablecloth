@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -289,7 +290,9 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				err = os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")
 				Expect(err).NotTo(HaveOccurred())
 
-				reloadServer(serverCmd)
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
 
 				resp, err = http.Get("http://127.0.0.1:8081/")
 				Expect(err).NotTo(HaveOccurred())
@@ -312,7 +315,9 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 					// Non-existent directory will cause starting the server to error
 					Expect(os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")).To(Succeed())
 
-					reloadServer(serverCmd)
+					withSilentOutput(func() {
+						reloadServer(serverCmd)
+					})
 
 					resp, err = http.Get("http://127.0.0.1:8081/")
 					Expect(err).NotTo(HaveOccurred())
@@ -337,7 +342,9 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// Attempt reload with broken server
-				reloadServer(serverCmd)
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
 				resp, err = http.Get("http://127.0.0.1:8081/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
@@ -359,13 +366,21 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	})
 })
 
+var serverOutputWriter = &struct{ io.Writer }{os.Stderr}
+
+func withSilentOutput(f func()) {
+	serverOutputWriter.Writer = ioutil.Discard
+	defer func() { serverOutputWriter.Writer = os.Stderr }()
+	f()
+}
+
 func startServer(server string, args ...string) *exec.Cmd {
 	if !strings.HasPrefix(server, "./") {
 		server = fmt.Sprintf("./test_servers/%s", server)
 	}
 	cmd := exec.Command(server, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = serverOutputWriter
+	cmd.Stderr = serverOutputWriter
 	err := cmd.Start()
 	Expect(err).To(BeNil())
 	time.Sleep(50 * time.Millisecond)
