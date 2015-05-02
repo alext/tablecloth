@@ -105,6 +105,17 @@ func (l *gracefulListener) prepareFd() (fd int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	defer fl.Close()
+
+	// The TCPListener.File() sets the underlying socket to be blocking
+	// (http://git.io/veIh6).  This alters the behaviour of Accept such that
+	// when the listener fd is closed, Accept doesn't return an error until the
+	// next connection comes in.
+	//
+	// Setting this back to non-blocking allows this to continue to use the
+	// epoll mechanism meaning that Accept will return an error immediately
+	// when the listener fd is closed.
+	syscall.SetNonblock(int(fl.Fd()), true)
 
 	// Dup the fd to clear the CloseOnExec flag
 	fd, err = syscall.Dup(int(fl.Fd()))

@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -260,15 +261,206 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		})
 
 	})
+
+	Describe("handling failures starting the new version", func() {
+		var cwd string
+		BeforeEach(func() {
+			cwd, _ = os.Getwd()
+			Expect(os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")).To(Succeed())
+			Expect(os.Chdir(cwd + "/test_servers/current")).To(Succeed())
+			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+		})
+		AfterEach(func() {
+			os.Chdir(cwd)
+			os.Remove(cwd + "/test_servers/current")
+		})
+
+		Context("the new server fails to start", func() {
+			It("should continue running the old server", func() {
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				firstBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				err = os.Remove(cwd + "/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Non-existent directory will cause starting the server to error
+				err = os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				newBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				Expect(newBody).To(Equal(firstBody))
+			})
+
+			if canReadProcessFds() {
+				It("should not leak file descriptors when reloading fails", func() {
+					resp, err := http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+
+					initalFds := getProcessFds(serverCmd)
+
+					Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+					// Non-existent directory will cause starting the server to error
+					Expect(os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")).To(Succeed())
+
+					withSilentOutput(func() {
+						reloadServer(serverCmd)
+					})
+
+					resp, err = http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+
+					currentFds := getProcessFds(serverCmd)
+					Expect(currentFds).To(Equal(initalFds))
+				})
+			} else {
+				PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
+			}
+
+			It("should successfully handle subsequent reload requests with a good server", func() {
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				err = os.Remove(cwd + "/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+				// Non-existent directory will cause starting the server to error
+				err = os.Symlink(cwd+"/test_servers/non_existent", cwd+"/test_servers/current")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Attempt reload with broken server
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				// Now point back at a good server
+				Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+				Expect(os.Symlink(cwd+"/test_servers/v2", cwd+"/test_servers/current")).To(Succeed())
+
+				reloadServer(serverCmd)
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				body, _ := ioutil.ReadAll(resp.Body)
+				Expect(string(body)).To(ContainSubstring("Hello from v2"))
+			})
+		})
+
+		Context("the new server exits shortly after starting", func() {
+			It("should continue running the old server", func() {
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				firstBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+				Expect(os.Symlink(cwd+"/test_servers/errorer", cwd+"/test_servers/current")).To(Succeed())
+
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+				newBody, _ := ioutil.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				Expect(newBody).To(Equal(firstBody))
+			})
+
+			if canReadProcessFds() {
+				It("should not leak file descriptors when reloading fails", func() {
+					resp, err := http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+
+					initalFds := getProcessFds(serverCmd)
+
+					Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+					Expect(os.Symlink(cwd+"/test_servers/errorer", cwd+"/test_servers/current")).To(Succeed())
+
+					withSilentOutput(func() {
+						reloadServer(serverCmd)
+					})
+
+					resp, err = http.Get("http://127.0.0.1:8081/")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+
+					currentFds := getProcessFds(serverCmd)
+					Expect(currentFds).To(Equal(initalFds))
+				})
+			} else {
+				PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
+			}
+
+			It("should successfully handle subsequent reload requests with a good server", func() {
+				resp, err := http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+				Expect(os.Symlink(cwd+"/test_servers/errorer", cwd+"/test_servers/current")).To(Succeed())
+
+				withSilentOutput(func() {
+					reloadServer(serverCmd)
+				})
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				// Now point back at a good server
+				Expect(os.Remove(cwd + "/test_servers/current")).To(Succeed())
+				Expect(os.Symlink(cwd+"/test_servers/v2", cwd+"/test_servers/current")).To(Succeed())
+
+				reloadServer(serverCmd)
+
+				resp, err = http.Get("http://127.0.0.1:8081/")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(200))
+
+				body, _ := ioutil.ReadAll(resp.Body)
+				Expect(string(body)).To(ContainSubstring("Hello from v2"))
+			})
+		})
+	})
 })
+
+var serverOutputWriter = &struct{ io.Writer }{os.Stderr}
+
+func withSilentOutput(f func()) {
+	serverOutputWriter.Writer = ioutil.Discard
+	defer func() { serverOutputWriter.Writer = os.Stderr }()
+	f()
+}
 
 func startServer(server string, args ...string) *exec.Cmd {
 	if !strings.HasPrefix(server, "./") {
 		server = fmt.Sprintf("./test_servers/%s", server)
 	}
 	cmd := exec.Command(server, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = serverOutputWriter
+	cmd.Stderr = serverOutputWriter
 	err := cmd.Start()
 	Expect(err).To(BeNil())
 	time.Sleep(50 * time.Millisecond)

@@ -2,6 +2,8 @@ package tablecloth
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -182,38 +184,73 @@ func listenFdFromEnv(ident string) int {
 func (m *manager) handleSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP)
-	_ = <-c
 
+	for _ = range c {
+		m.handleHUP()
+	}
+}
+
+func (m *manager) handleHUP() {
 	m.listenersLock.Lock()
 	defer m.listenersLock.Unlock()
 
 	if m.inParent {
-		m.upgradeServer()
+		err := m.upgradeServer()
+		if err != nil {
+			log.Println("[tablecloth] error starting new server, aborting reload:", err)
+			return
+		}
 	}
 
 	m.closeListeners()
 }
 
-func (m *manager) upgradeServer() {
+func (m *manager) upgradeServer() error {
 	fds := make(map[string]int, len(m.listeners))
 	for ident, l := range m.listeners {
 		fd, err := l.prepareFd()
 		if err != nil {
-			panic(err)
-			// TODO: better error handling
+			// Close any that were successfully prepared so we don't leak.
+			closeFds(fds)
+			return err
 		}
 		fds[ident] = fd
 	}
 
 	proc, err := m.startTemporaryChild(fds)
 	if err != nil {
-		// TODO: better error handling
-		panic(err)
+		// Close all the copied file descriptors so we don't leak.
+		closeFds(fds)
+		return err
 	}
 
 	time.Sleep(StartupDelay)
 
+	err = assertChildStillRunning(proc.Pid)
+	if err != nil {
+		closeFds(fds)
+		return err
+	}
+
 	go m.reExecSelf(fds, proc.Pid)
+	return nil
+}
+
+func closeFds(fds map[string]int) {
+	for ident, fd := range fds {
+		os.NewFile(uintptr(fd), ident).Close()
+	}
+}
+
+func assertChildStillRunning(pid int) error {
+	pid, err := syscall.Wait4(pid, nil, syscall.WNOHANG, nil)
+	if err != nil {
+		return fmt.Errorf("wait4 error: %s", err.Error())
+	}
+	if pid != 0 {
+		return fmt.Errorf("child no longer running after StartupDelay(%s)", StartupDelay)
+	}
+	return nil
 }
 
 func (m *manager) closeListeners() {
