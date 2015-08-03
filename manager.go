@@ -116,7 +116,8 @@ type manager struct {
 
 func (m *manager) setup() {
 	m.listeners = make(map[string]*gracefulListener)
-	m.inParent = os.Getenv("TEMPORARY_CHILD") != "1"
+	m.inParent = os.Getenv("TABLECLOTH_CHILD") != "1" &&
+		os.Getenv("TEMPORARY_CHILD") != "1" // Support legacy ENV var name
 
 	go m.handleSignals()
 
@@ -174,7 +175,12 @@ func (m *manager) setupListener(addr, ident string) (*gracefulListener, error) {
 }
 
 func listenFdFromEnv(ident string) int {
-	listenFD, err := strconv.Atoi(os.Getenv("LISTEN_FD_" + ident))
+	fdStr := os.Getenv("TABLECLOTH_FD_" + ident)
+	if fdStr == "" {
+		// Support legacy ENV var names
+		fdStr = os.Getenv("LISTEN_FD_" + ident)
+	}
+	listenFD, err := strconv.Atoi(fdStr)
 	if err != nil {
 		return 0
 	}
@@ -265,9 +271,11 @@ func (m *manager) reExecSelf(fds map[string]int, childPid int) {
 
 	em := newEnvMap(os.Environ())
 	for ident, fd := range fds {
-		em["LISTEN_FD_"+ident] = strconv.Itoa(fd)
+		delete(em, "LISTEN_FD_"+ident) // Clear out legacy env vars
+		em["TABLECLOTH_FD_"+ident] = strconv.Itoa(fd)
 	}
-	em["TEMPORARY_CHILD_PID"] = strconv.Itoa(childPid)
+	delete(em, "TEMPORARY_CHILD_PID") // Clear out legacy env var
+	em["TABLECLOTH_CHILD_PID"] = strconv.Itoa(childPid)
 
 	if WorkingDir != "" {
 		os.Chdir(WorkingDir)
@@ -283,9 +291,11 @@ func (m *manager) startTemporaryChild(fds map[string]int) (proc *os.Process, err
 
 	em := newEnvMap(os.Environ())
 	for ident, fd := range fds {
-		em["LISTEN_FD_"+ident] = strconv.Itoa(fd)
+		delete(em, "LISTEN_FD_"+ident) // Clear out legacy env vars
+		em["TABLECLOTH_FD_"+ident] = strconv.Itoa(fd)
 	}
-	em["TEMPORARY_CHILD"] = "1"
+	delete(em, "TEMPORARY_CHILD") // Clear out legacy env var
+	em["TABLECLOTH_CHILD"] = "1"
 	cmd.Env = em.ToEnv()
 	if WorkingDir != "" {
 		cmd.Dir = WorkingDir
@@ -299,7 +309,12 @@ func (m *manager) startTemporaryChild(fds map[string]int) (proc *os.Process, err
 }
 
 func (m *manager) stopTemporaryChild() {
-	childPid, err := strconv.Atoi(os.Getenv("TEMPORARY_CHILD_PID"))
+	pidStr := os.Getenv("TABLECLOTH_CHILD_PID")
+	if pidStr == "" {
+		// Support legacy ENV var name
+		pidStr = os.Getenv("TEMPORARY_CHILD_PID")
+	}
+	childPid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		// non-integer/blank TEMPORARY_CHILD_PID so ignore
 		return
