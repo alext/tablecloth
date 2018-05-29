@@ -1,0 +1,35 @@
+version: 2
+meta:
+  test_defaults: &test_defaults
+    working_directory: /go/src/github.com/alext/tablecloth
+    steps:
+      - checkout
+      - run:
+          name: install dependencies
+          command: |
+            go get -v -t -d ./...
+      - run:
+          name: run tests
+          command: |
+            go version
+            go test -v ./...
+jobs:
+  go_1.10:
+    <<: *test_defaults
+    docker:
+      - image: circleci/golang:1.10
+  go_1.9:
+    <<: *test_defaults
+    docker:
+      - image: circleci/golang:1.9
+  go_1.8:
+    <<: *test_defaults
+    docker:
+      - image: circleci/golang:1.8
+workflows:
+  version: 2
+  build:
+    jobs:
+      - go_1.10
+      - go_1.9
+      - go_1.8
