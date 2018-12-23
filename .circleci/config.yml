@@ -1,5 +1,13 @@
 version: 2
 meta:
+  test_defaults_modules: &test_defaults_modules
+    steps:
+      - checkout
+      - run:
+          name: run tests
+          command: |
+            go version
+            go test -v ./...
   test_defaults: &test_defaults
     working_directory: /go/src/github.com/alext/tablecloth
     steps:
@@ -15,7 +23,7 @@ meta:
             go test -v ./...
 jobs:
   go_1.11:
-    <<: *test_defaults
+    <<: *test_defaults_modules
     docker:
       - image: circleci/golang:1.11
   go_1.10:
