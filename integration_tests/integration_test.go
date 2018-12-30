@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/phayes/freeport"
 	vegeta "gopkg.in/tsenart/vegeta.v2/lib"
 )
 
@@ -39,7 +41,8 @@ func buildTestServers() error {
 
 var _ = Describe("Tablecloth HTTP listener", func() {
 	var (
-		serverCmd *exec.Cmd
+		serverCmd  *exec.Cmd
+		serverAddr string
 	)
 
 	AfterEach(func() {
@@ -49,18 +52,18 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	Context("Listening on a single port", func() {
 
 		BeforeEach(func() {
-			serverCmd = startServer("simple/server", "-listenAddr=127.0.0.1:8081")
+			serverCmd, serverAddr = startServer("simple/server")
 		})
 
 		It("Should listen on the given address", func() {
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 
 			Expect(resp.StatusCode).To(Equal(200))
 		})
 
 		It("Should restart when given a HUP signal", func() {
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			firstBody, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -69,7 +72,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			reloadServer(serverCmd)
 
-			resp, err = http.Get("http://127.0.0.1:8081/")
+			resp, err = http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			newBody, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -81,7 +84,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081"}, 40, 3*time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://" + serverAddr}, 40, 3*time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
@@ -92,7 +95,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 		if canReadProcessFds() {
 			It("should not leak file descriptors when reloading", func() {
-				resp, err := http.Get("http://127.0.0.1:8081/")
+				resp, err := http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -100,7 +103,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 				reloadServer(serverCmd)
 
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -113,32 +116,35 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 	})
 
 	Context("Listening on multiple ports", func() {
+		var (
+			serverAddr2 string
+		)
 
 		BeforeEach(func() {
-			serverCmd = startServer("double_listen/server", "-listenAddr1=127.0.0.1:8081", "-listenAddr2=127.0.0.1:8082")
+			serverCmd, serverAddr, serverAddr2 = startServerDouble("double_listen/server")
 		})
 
 		It("Should listen on the given addresses", func() {
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 
 			Expect(resp.StatusCode).To(Equal(200))
 
-			resp, err = http.Get("http://127.0.0.1:8082/")
+			resp, err = http.Get("http://" + serverAddr2 + "/")
 			Expect(err).To(BeNil())
 
 			Expect(resp.StatusCode).To(Equal(200))
 		})
 
 		It("Should restart when given a HUP signal", func() {
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			firstBody1, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 
 			Expect(resp.StatusCode).To(Equal(200))
 
-			resp, err = http.Get("http://127.0.0.1:8082/")
+			resp, err = http.Get("http://" + serverAddr2 + "/")
 			Expect(err).To(BeNil())
 			firstBody2, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -147,7 +153,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			reloadServer(serverCmd)
 
-			resp, err = http.Get("http://127.0.0.1:8081/")
+			resp, err = http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			newBody, _ := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -157,7 +163,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			// The response body includes the start time of the server
 			Expect(string(newBody)).NotTo(Equal(string(firstBody1)))
 
-			resp, err = http.Get("http://127.0.0.1:8082/")
+			resp, err = http.Get("http://" + serverAddr2 + "/")
 			Expect(err).To(BeNil())
 			newBody, _ = ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -169,7 +175,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		})
 
 		It("Should not drop any requests while reloading", func() {
-			resultCh := startVegetaAttack([]string{"GET http://127.0.0.1:8081", "GET http://127.0.0.1:8082"}, 40, 3*time.Second)
+			resultCh := startVegetaAttack([]string{"GET http://" + serverAddr, "GET http://" + serverAddr2}, 40, 3*time.Second)
 
 			time.Sleep(100 * time.Millisecond)
 			reloadServer(serverCmd)
@@ -182,14 +188,14 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 	It("should still restart if connections haven't closed within the timeout", func() {
 		// Start with a closeTimeout of 100ms (which is less that the response time of 250ms)
-		serverCmd = startServer("simple/server", "-listenAddr=127.0.0.1:8081", "-closeTimeout=100ms")
+		serverCmd, serverAddr = startServer("simple/server", "-closeTimeout=100ms")
 		parentPid := serverCmd.Process.Pid
 
-		go http.Get("http://127.0.0.1:8081/")
+		go http.Get("http://" + serverAddr + "/")
 		time.Sleep(10 * time.Millisecond)
 		reloadServer(serverCmd)
 
-		resp, err := http.Get("http://127.0.0.1:8081/")
+		resp, err := http.Get("http://" + serverAddr + "/")
 		Expect(err).To(BeNil())
 		newBody, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -213,10 +219,10 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 		It("should change the working directory before re-execing", func() {
 			os.Chdir(cwd + "/test_servers/v1")
 
-			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/v2")
+			serverCmd, serverAddr = startServer("./server", "-workingDir="+cwd+"/test_servers/v2")
 			parentPid := serverCmd.Process.Pid
 
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			body, _ := ioutil.ReadAll(resp.Body)
 
@@ -224,7 +230,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			reloadServer(serverCmd)
 
-			resp, err = http.Get("http://127.0.0.1:8081/")
+			resp, err = http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			body, _ = ioutil.ReadAll(resp.Body)
 
@@ -237,10 +243,10 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			os.Chdir(cwd + "/test_servers/current")
 
-			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+			serverCmd, serverAddr = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
 			parentPid := serverCmd.Process.Pid
 
-			resp, err := http.Get("http://127.0.0.1:8081/")
+			resp, err := http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			body, _ := ioutil.ReadAll(resp.Body)
 
@@ -253,7 +259,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			reloadServer(serverCmd)
 
-			resp, err = http.Get("http://127.0.0.1:8081/")
+			resp, err = http.Get("http://" + serverAddr + "/")
 			Expect(err).To(BeNil())
 			body, _ = ioutil.ReadAll(resp.Body)
 
@@ -268,7 +274,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			cwd, _ = os.Getwd()
 			Expect(os.Symlink(cwd+"/test_servers/v1", cwd+"/test_servers/current")).To(Succeed())
 			Expect(os.Chdir(cwd + "/test_servers/current")).To(Succeed())
-			serverCmd = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
+			serverCmd, serverAddr = startServer("./server", "-workingDir="+cwd+"/test_servers/current")
 		})
 		AfterEach(func() {
 			os.Chdir(cwd)
@@ -277,7 +283,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 		Context("the new server fails to start", func() {
 			It("should continue running the old server", func() {
-				resp, err := http.Get("http://127.0.0.1:8081/")
+				resp, err := http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				firstBody, _ := ioutil.ReadAll(resp.Body)
@@ -294,7 +300,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 					reloadServer(serverCmd)
 				})
 
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				newBody, _ := ioutil.ReadAll(resp.Body)
@@ -305,7 +311,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			if canReadProcessFds() {
 				It("should not leak file descriptors when reloading fails", func() {
-					resp, err := http.Get("http://127.0.0.1:8081/")
+					resp, err := http.Get("http://" + serverAddr + "/")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp.StatusCode).To(Equal(200))
 
@@ -319,7 +325,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 						reloadServer(serverCmd)
 					})
 
-					resp, err = http.Get("http://127.0.0.1:8081/")
+					resp, err = http.Get("http://" + serverAddr + "/")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp.StatusCode).To(Equal(200))
 
@@ -331,7 +337,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			}
 
 			It("should successfully handle subsequent reload requests with a good server", func() {
-				resp, err := http.Get("http://127.0.0.1:8081/")
+				resp, err := http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -345,7 +351,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				withSilentOutput(func() {
 					reloadServer(serverCmd)
 				})
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -355,7 +361,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 				reloadServer(serverCmd)
 
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -366,7 +372,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 		Context("the new server exits shortly after starting", func() {
 			It("should continue running the old server", func() {
-				resp, err := http.Get("http://127.0.0.1:8081/")
+				resp, err := http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				firstBody, _ := ioutil.ReadAll(resp.Body)
@@ -379,7 +385,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 					reloadServer(serverCmd)
 				})
 
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				newBody, _ := ioutil.ReadAll(resp.Body)
@@ -390,7 +396,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 			if canReadProcessFds() {
 				It("should not leak file descriptors when reloading fails", func() {
-					resp, err := http.Get("http://127.0.0.1:8081/")
+					resp, err := http.Get("http://" + serverAddr + "/")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp.StatusCode).To(Equal(200))
 
@@ -403,7 +409,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 						reloadServer(serverCmd)
 					})
 
-					resp, err = http.Get("http://127.0.0.1:8081/")
+					resp, err = http.Get("http://" + serverAddr + "/")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(resp.StatusCode).To(Equal(200))
 
@@ -415,7 +421,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 			}
 
 			It("should successfully handle subsequent reload requests with a good server", func() {
-				resp, err := http.Get("http://127.0.0.1:8081/")
+				resp, err := http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -425,7 +431,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				withSilentOutput(func() {
 					reloadServer(serverCmd)
 				})
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -435,7 +441,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 
 				reloadServer(serverCmd)
 
-				resp, err = http.Get("http://127.0.0.1:8081/")
+				resp, err = http.Get("http://" + serverAddr + "/")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 
@@ -454,7 +460,24 @@ func withSilentOutput(f func()) {
 	f()
 }
 
-func startServer(server string, args ...string) *exec.Cmd {
+func startServer(server string, args ...string) (*exec.Cmd, string) {
+	port, err := freeport.GetFreePort()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	cmd := execServer(server, append(args, "-listenAddr="+addr)...)
+	return cmd, addr
+}
+
+func startServerDouble(server string, args ...string) (*exec.Cmd, string, string) {
+	ports, err := freeport.GetFreePorts(2)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	addr1 := "127.0.0.1:" + strconv.Itoa(ports[0])
+	addr2 := "127.0.0.1:" + strconv.Itoa(ports[1])
+	cmd := execServer(server, append(args, "-listenAddr1="+addr1, "-listenAddr2="+addr2)...)
+	return cmd, addr1, addr2
+}
+
+func execServer(server string, args ...string) *exec.Cmd {
 	if !strings.HasPrefix(server, "./") {
 		server = fmt.Sprintf("./test_servers/%s", server)
 	}
@@ -462,7 +485,7 @@ func startServer(server string, args ...string) *exec.Cmd {
 	cmd.Stdout = serverOutputWriter
 	cmd.Stderr = serverOutputWriter
 	err := cmd.Start()
-	Expect(err).To(BeNil())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	time.Sleep(50 * time.Millisecond)
 
 	return cmd
