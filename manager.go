@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -108,7 +109,7 @@ func ListenAndServe(addr string, handler http.Handler, identifier ...string) err
 }
 
 type serverInfo struct {
-	listener *gracefulListener
+	listener *net.TCPListener
 	server   *http.Server
 	wg       sync.WaitGroup
 }
@@ -215,7 +216,7 @@ func (m *manager) handleHUP() {
 func (m *manager) upgradeServer() error {
 	fds := make(map[string]int, len(m.servers))
 	for ident, si := range m.servers {
-		fd, err := si.listener.prepareFd()
+		fd, err := prepareListenerFd(si.listener)
 		if err != nil {
 			// Close any that were successfully prepared so we don't leak.
 			closeFds(fds)
