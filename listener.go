@@ -37,18 +37,21 @@ func prepareListenerFd(tl *net.TCPListener) (fd int, err error) {
 	}
 	defer fl.Close()
 
-	// The TCPListener.File() sets the underlying socket to be blocking
-	// (http://git.io/veIh6).  This alters the behaviour of Accept such that
-	// when the listener fd is closed, Accept doesn't return an error until the
-	// next connection comes in.
+	// With Go versions prior to 1.11 The TCPListener.File() call sets the
+	// underlying socket to be blocking (http://git.io/veIh6). With Go 1.11
+	// onwards, this is no longer the case, however the File.Fd() call now sets
+	// the underlying socket to be blocking (https://git.io/fhtYn). Setting it
+	// to blocking alters the behaviour of Accept such that when the listener
+	// fd is closed, Accept doesn't return an error until the next connection
+	// comes in.
 	//
-	// Setting this back to non-blocking allows this to continue to use the
-	// epoll mechanism meaning that Accept will return an error immediately
-	// when the listener fd is closed.
-	syscall.SetNonblock(int(fl.Fd()), true)
+	// Setting this back to non-blocking allows Accept to return an error
+	// immediately when the listener fd is closed.
+	fd = int(fl.Fd())
+	syscall.SetNonblock(fd, true)
 
 	// Dup the fd to clear the CloseOnExec flag
-	fd, err = syscall.Dup(int(fl.Fd()))
+	fd, err = syscall.Dup(fd)
 	if err != nil {
 		return 0, err
 	}
