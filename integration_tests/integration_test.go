@@ -108,7 +108,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 				Expect(resp.StatusCode).To(Equal(200))
 
 				currentFds := getProcessFds(serverCmd)
-				Expect(currentFds).To(Equal(initalFds))
+				Expect(len(currentFds)).To(Equal(len(initalFds)))
 			})
 		} else {
 			PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
@@ -330,7 +330,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 					Expect(resp.StatusCode).To(Equal(200))
 
 					currentFds := getProcessFds(serverCmd)
-					Expect(currentFds).To(Equal(initalFds))
+					Expect(len(currentFds)).To(Equal(len(initalFds)))
 				})
 			} else {
 				PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
@@ -414,7 +414,7 @@ var _ = Describe("Tablecloth HTTP listener", func() {
 					Expect(resp.StatusCode).To(Equal(200))
 
 					currentFds := getProcessFds(serverCmd)
-					Expect(currentFds).To(Equal(initalFds))
+					Expect(len(currentFds)).To(Equal(len(initalFds)))
 				})
 			} else {
 				PIt("leaking file descriptors test requires /proc/<pid>/fd directories")
