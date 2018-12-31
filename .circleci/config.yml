@@ -14,6 +14,10 @@ meta:
             go version
             go test -v ./...
 jobs:
+  go_1.11:
+    <<: *test_defaults
+    docker:
+      - image: circleci/golang:1.11
   go_1.10:
     <<: *test_defaults
     docker:
@@ -26,5 +30,6 @@ workflows:
   version: 2
   build:
     jobs:
+      - go_1.11
       - go_1.10
       - go_1.9
